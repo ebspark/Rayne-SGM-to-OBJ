@@ -24,7 +24,10 @@ class ImportSGM(bpy.types.Operator, ImportHelper):
         output_file = f"{os.path.splitext(filepath)[0]}.obj"
         data = read_sgm(filepath)
         write_obj(data[0], data[1], output_file)
-        bpy.ops.wm.obj_import(filepath=output_file)
+        if callable(getattr(getattr(getattr(bpy, "ops", None), "import_scene", None), "obj", None)):
+            bpy.ops.import_scene.obj(filepath=output_file)
+        else:
+            bpy.ops.wm.obj_import(filepath=output_file)
         return {"FINISHED"}
 
 def read_sgm(filename):
