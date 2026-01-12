@@ -112,14 +112,18 @@ def write_obj(meshes, materials, filename):
 
     with open(mtl_filename, 'w') as mtl_file:
         for i,m in enumerate(materials):
-            material_id = m["material_id"]
+            material_id = m.get("material_id", f"mat_{i}")
             mtl_file.write(f"newmtl {material_id}\n")
-            color = m["colors"][0]
-            r, g, b, a = color[0]
+            if m.get("colors"):
+                color = m["colors"][0]
+                r, g, b, a = color[0]
+            else:
+                r, g, b, a = 0.8, 0.8, 0.8, 1.0  # default grey
+            uv_data = m.get("uv_data", [])
             mtl_file.write(f"Kd {r} {g} {b}\n")
             mtl_file.write(f"d {a}\n")
             if len(meshes[i]["vertices"][0][2]) > 0:
-                for uv_images in m["uv_data"]:
+                for uv_images in uv_data:
                     for texname, _ in uv_images:
                         mtl_file.write(f"map_Kd {texname}\n")
 
@@ -128,7 +132,10 @@ def write_obj(meshes, materials, filename):
         for (i,m) in enumerate(meshes):
             print(f"Working on mesh {i}")
             f.write(f"o {m['mesh_id']}\n")
-            f.write(f'usemtl {m["material_id"]}\n')
+            if m["material_id"] is not None and m["material_id"] < len(materials):
+                f.write(f'usemtl {materials[m["material_id"]].get("material_id", "default")}\n')
+            else:
+                f.write('usemtl default\n')
             vertices = m["vertices"]
             indices = m["indices"]
             for v in vertices:
