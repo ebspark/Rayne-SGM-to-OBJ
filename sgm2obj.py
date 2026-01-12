@@ -1,22 +1,42 @@
 import struct, os, argparse
 
-def main():
-    parser = argparse.ArgumentParser(description='Convert SGM to OBJ format')
-    parser.add_argument('input_file', type=str, help='path to input file')
-    parser.add_argument('output_file', nargs='?', type=str, help='path to output file')
-    parser.add_argument('--texture', type=str, help='name of texture file if there is only one texture')
-    args = parser.parse_args()
+try:
+    import bpy
+    from bpy_extras.io_utils import ImportHelper
+    IN_BLENDER = True
+except ImportError:
+    bpy = None
+    IN_BLENDER = False
 
-    input_file = args.input_file
-    output_file = args.output_file
-    if args.output_file is None:
-        output_file = f'{os.path.splitext(args.input_file)[0]}.obj'
-    else:
-        output_file = args.output_file
-    texture = args.texture
+bl_info = {
+    "name": "Import Rayne SGM model format",
+    "author": ".index",
+    "blender": (2, 80, 0),
+    "category": "Import",
+    "location": "File > Import > Rayne Model (.sgm)",
+    "description": "Imports Rayne .sgm files to Blender by converting them to .obj",
+    "version": (1, 0, 0),
+    "wiki_url": "https://github.com/twhlynch/Rayne-SGM-To-OBJ"
+}
 
-    data = read_sgm(input_file)
-    write_obj(data[0], data[1], output_file, texture)
+if IN_BLENDER:
+    class ImportSGM(bpy.types.Operator, ImportHelper):
+        bl_idname = "import_scene.sgm"
+        bl_label = "Import Rayne Model"
+
+        filename_ext = ".sgm"
+        filter_glob: bpy.props.StringProperty(default="*.sgm", options={"HIDDEN"})
+
+        def execute(self, context):
+            filepath = self.filepath
+            output_file = f"{os.path.splitext(filepath)[0]}.obj"
+            data = read_sgm(filepath)
+            write_obj(data[0], data[1], output_file)
+            if "import_scene.obj" in bpy.ops.__dir__():
+                bpy.ops.import_scene.obj(filepath=output_file)
+            else:
+                bpy.ops.wm.obj_import(filepath=output_file)
+            return {"FINISHED"}
 
 def read_sgm(filename):
     with open(filename, "rb") as file:
@@ -98,20 +118,24 @@ def read_sgm(filename):
             
     return [meshes, materials]
 
-def write_obj(meshes, materials, filename, texturename):
+def write_obj(meshes, materials, filename, texturename = None):
     mtl_filename = f"{os.path.splitext(filename)[0]}.mtl"
 
     with open(mtl_filename, 'w') as mtl_file:
         for i,m in enumerate(materials):
-            material_id = m["material_id"]
+            material_id = m.get("material_id", f"mat_{i}")
             mtl_file.write(f"newmtl {material_id}\n")
-            color = m["colors"][0]
-            r, g, b, a = color[0]
+            if m.get("colors"):
+                color = m["colors"][0]
+                r, g, b, a = color[0]
+            else:
+                r, g, b, a = 0.8, 0.8, 0.8, 1.0  # default grey
+            uv_data = m.get("uv_data", [])
             mtl_file.write(f"Kd {r} {g} {b}\n")
             mtl_file.write(f"d {a}\n")
             if len(meshes[i]["vertices"][0][2]) > 0:
                 if texturename is None:
-                    for uv_images in m["uv_data"]:
+                    for uv_images in uv_data:
                         for texname, _ in uv_images:
                             mtl_file.write(f"map_Kd {texname}\n")
                 else:
@@ -122,7 +146,10 @@ def write_obj(meshes, materials, filename, texturename):
         for (i,m) in enumerate(meshes):
             print(f"Working on mesh {i}")
             f.write(f"o {m['mesh_id']}\n")
-            f.write(f'usemtl {m["material_id"]}\n')
+            if m["material_id"] is not None and m["material_id"] < len(materials):
+                f.write(f'usemtl {materials[m["material_id"]].get("material_id", "default")}\n')
+            else:
+                f.write('usemtl default\n')
             vertices = m["vertices"]
             indices = m["indices"]
             for v in vertices:
@@ -139,5 +166,37 @@ def write_obj(meshes, materials, filename, texturename):
                 else:
                     f.write(f'f {indices[i] + 1}//{indices[i] + 1} {indices[i + 1] + 1}//{indices[i + 1] + 1} {indices[i + 2] + 1}//{indices[i + 2] + 1}\n')
 
-if __name__ == '__main__':
-    main()
+def menu_func_import(self, context):
+    self.layout.operator(ImportSGM.bl_idname, text="Rayne Model (.sgm)")
+
+def register():
+    bpy.utils.register_class(ImportSGM)
+    bpy.types.TOPBAR_MT_file_import.append(menu_func_import)
+
+def unregister():
+    bpy.types.TOPBAR_MT_file_import.remove(menu_func_import)
+    bpy.utils.unregister_class(ImportSGM)
+
+def main():
+    parser = argparse.ArgumentParser(description='Convert SGM to OBJ format')
+    parser.add_argument('input_file', type=str, help='path to input file')
+    parser.add_argument('output_file', nargs='?', type=str, help='path to output file')
+    parser.add_argument('--texture', type=str, help='name of texture file if there is only one texture')
+    args = parser.parse_args()
+
+    input_file = args.input_file
+    output_file = args.output_file
+    if args.output_file is None:
+        output_file = f'{os.path.splitext(args.input_file)[0]}.obj'
+    else:
+        output_file = args.output_file
+    texture = args.texture
+
+    data = read_sgm(input_file)
+    write_obj(data[0], data[1], output_file, texture)
+
+if __name__ == "__main__":
+    if IN_BLENDER:
+        register()
+    else:
+        main()
