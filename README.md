@@ -5,7 +5,7 @@ Made by reversing the SGM Exporter from [uberpixel/SGM-file-format](https://gith
 
 ## Command Line
 
-`python sgm2obj.py [-h] input_file.sgm [output_file.obj] [--texture TEXTURE.TYPE]`
+`python sgm2obj.py [-h] <input_file.sgm> [output_file.obj] [--texture texture.ext]`
 
 If no output file is provided, it will use the input file name and replace the extension with .obj and .mtl
 If no texture is provided it will use the one in the sgm with a .* extension and will have to be changed manually.
@@ -13,7 +13,7 @@ Only set the texture if there is only one texture, otherwise it will override al
 
 ## Blender Importer
 
-The Plugin for 2.8x and higher can be found in `BlenderImport2_8x\io_import_sgm.py`<br>
+The Tool should also function as a plugin for blender 2.8.x - 5.0.x and higher?<br>
 I took the easy way out rather than importing the model myself, it converts to .obj/.mtl using the same functions and uses the built in .obj importer.<br>
 This means there will be .obj and .mtl files left in the same directory as the imported .smg model.
 
