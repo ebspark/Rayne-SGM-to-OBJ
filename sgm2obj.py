@@ -40,29 +40,41 @@ if IN_BLENDER:
 
 def read_sgm(filename):
     with open(filename, "rb") as file:
+        #magic number - uint32 - 352658064
+        #version - uint8 - 3
         version = struct.unpack('<L B', file.read(5))
         print(version)
 
+        #number of materials - uint8
         num_materials = struct.unpack('<B', file.read(1))[0]
         materials = []
         for _ in range(num_materials):
+            #material id - uint8
             material_id = struct.unpack('<B', file.read(1))[0]
+            #number of uv sets - uint8
             uv_count = struct.unpack('<B', file.read(1))[0]
             uv_data = []
             for _ in range(uv_count):
+                #number of textures - uint8
                 image_count = struct.unpack('<B', file.read(1))[0]
                 images = []
                 for _ in range(image_count):
+                    #texture type hint - uint8
                     usage_hint = struct.unpack('<B', file.read(1))[0]
+                    #filename length - uint16
                     texname_len = struct.unpack('<H', file.read(2))[0] - 1
+                    #filename - char*filename length
                     texname = struct.unpack(f'<{texname_len}s', file.read(texname_len))[0].decode("utf_8")
                     file.seek(1, 1) # skip null terminator
                     images.append((texname, usage_hint))
                 uv_data.append(images)
+            #number of colors - uint8
             color_count = struct.unpack('<B', file.read(1))[0]
             colors = []
             for _ in range(color_count):
+                #color type hint - uint8
                 color_id = struct.unpack('<B', file.read(1))[0]
+                #color rgba - float32*4
                 color = struct.unpack('<ffff', file.read(16))
                 colors.append((color, color_id))
             materials.append({
@@ -71,19 +83,29 @@ def read_sgm(filename):
                 'colors': colors
             })
 
+        #number of meshes - uint8
         num_meshes = struct.unpack('<B', file.read(1))[0]
         meshes = [] 
         index_offset = 0 # for multiple meshes
         for _ in range(num_meshes):
             vertices = []
             indices = []
+            #mesh id - uint8
             mesh_id = struct.unpack('<B', file.read(1))[0]
+            #used materials id - uint8
             material_id = struct.unpack('<B', file.read(1))[0]
+            #number of vertices - uint32
             vertex_count = struct.unpack('<I', file.read(4))[0]
+            #texcoord count - uint8
             uv_count = struct.unpack('<B', file.read(1))[0]
+            #color channel count - uint8 usually 0 or 4
             texdata_count = struct.unpack('<B', file.read(1))[0]
+            #has tangents - uint8 0 if not, 1 otherwise
             has_tangents = struct.unpack('<B', file.read(1))[0]
+            #has bones - uint8 0 if not, 1 otherwise
             has_bones = struct.unpack('<B', file.read(1))[0]
+            #interleaved vertex data - float32
+            #- position, normal, uvN, color, tangents, weights, bone indices
             for _ in range(vertex_count):
                 position = struct.unpack('<fff', file.read(12))
                 normal = struct.unpack('<fff', file.read(12))
@@ -104,8 +126,11 @@ def read_sgm(filename):
                     bones = struct.unpack('<ffff', file.read(16))
                 vertices.append((position, normal, uvs, color, tangent, weights, bones))
             
+            #number of indices - uint32
             index_count = struct.unpack('<I', file.read(4))[0]
+            #index size - uint8, usually 2 or 4 bytes
             index_size = struct.unpack('<B', file.read(1))[0]
+            #indices - index size
             for _ in range(index_count):
                 if index_size == 4:
                     index = struct.unpack('<I', file.read(4))[0]
